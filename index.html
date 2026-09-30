@@ -26,8 +26,8 @@
     }
     canvas {
       display: block;
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 100vh;
       touch-action: none;
       position: absolute;
       top: 0;
@@ -77,18 +77,12 @@
     let eliminationTimer = null;
     let width = 0;
     let height = 0;
-    let dpr = 1;
 
     function resize() {
-      dpr = window.devicePixelRatio || 1;
       width = window.innerWidth;
       height = window.innerHeight;
-      
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = width + 'px';
-      canvas.style.height = height + 'px';
-      
+      canvas.width = width;
+      canvas.height = height;
       initStars(width, height);
     }
 
@@ -370,9 +364,7 @@
     }
 
     function animate(timestamp) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
 
       const speedFactor = 1 + chargeProgress * 3 + (state === 'ELIMINATING' ? 2 : 0);
       drawBackground(speedFactor);
@@ -467,4 +459,40 @@
           ctx.arc(0, 0, touch.radius + 30 + pulse, 0, Math.PI * 2);
           ctx.strokeStyle = '#FFFFFF';
           ctx.lineWidth = 4;
-          ctx.shadowBlur = 2
+          ctx.shadowBlur = 25;
+          ctx.shadowColor = touch.color.core;
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      });
+
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        shockwaves[i].update();
+        shockwaves[i].draw();
+        if (shockwaves[i].alpha <= 0) shockwaves.splice(i, 1);
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw();
+        if (particles[i].alpha <= 0) particles.splice(i, 1);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    const handleTouchNative = (e) => {
+      e.preventDefault();
+      syncTouches(e);
+    };
+
+    window.addEventListener('touchstart', handleTouchNative, { passive: false });
+    window.addEventListener('touchmove', handleTouchNative, { passive: false });
+    window.addEventListener('touchend', handleTouchNative, { passive: false });
+    window.addEventListener('touchcancel', handleTouchNative, { passive: false });
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
