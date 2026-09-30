@@ -1,518 +1,501 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Cosmic Elimination Chooser</title>
-<style>
-* {
-box-sizing: border-box;
-user-select: none;
--webkit-user-select: none;
--webkit-touch-callout: none;
-margin: 0;
-padding: 0;
-}
-html, body {
-width: 100%;
-height: 100%;
-overflow: hidden;
-background-color: #030407;
-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-touch-action: none;
-position: fixed;
-}
-canvas {
-display: block;
-width: 100%;
-height: 100%;
-touch-action: none;
-}
-#ui-overlay {
-position: absolute;
-top: 50%;
-left: 50%;
-transform: translate(-50%, -50%);
-color: rgba(255, 255, 255, 0.85);
-font-size: 1.1rem;
-letter-spacing: 0.25em;
-text-transform: uppercase;
-pointer-events: none;
-transition: opacity 0.3s ease;
-text-align: center;
-font-weight: 700;
-text-shadow: 0 0 15px rgba(0, 243, 255, 0.8), 0 0 30px rgba(0, 243, 255, 0.4);
-width: 90%;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cosmic Elimination Chooser</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #030407;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      touch-action: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+  </style>
 </head>
 <body>
-<div id="ui-overlay">Place 2 or more fingers</div>
-<canvas id="canvas"></canvas>
+  <canvas id="canvas"></canvas>
 
-<script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const uiOverlay = document.getElementById('ui-overlay');
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
-// Dynamic background themes per round
-const BACKGROUND_THEMES = [
-{ bg: [3, 4, 12], grid: 'rgba(0, 243, 255, 0.08)' }, // Deep Cyber Void
-{ bg: [20, 3, 25], grid: 'rgba(255, 0, 160, 0.08)' }, // Vaporwave Neon
-{ bg: [4, 20, 15], grid: 'rgba(0, 255, 102, 0.08)' }, // Matrix Emerald
-{ bg: [25, 10, 2], grid: 'rgba(255, 85, 0, 0.08)' }, // Solar Flare
-{ bg: [12, 3, 30], grid: 'rgba(176, 0, 255, 0.08)' } // Deep Plasma
-];
+    const BACKGROUND_THEMES = [
+      { bg: [3, 4, 12], grid: 'rgba(0, 243, 255, 0.15)' },
+      { bg: [20, 3, 25], grid: 'rgba(255, 0, 160, 0.15)' },
+      { bg: [4, 20, 15], grid: 'rgba(0, 255, 102, 0.15)' },
+      { bg: [25, 10, 2], grid: 'rgba(255, 85, 0, 0.15)' },
+      { bg: [12, 3, 30], grid: 'rgba(176, 0, 255, 0.15)' }
+    ];
 
-let currentThemeIdx = 0;
-let targetBg = BACKGROUND_THEMES[0].bg;
-let currentBg = [...BACKGROUND_THEMES[0].bg];
+    let currentThemeIdx = 0;
+    let targetBg = BACKGROUND_THEMES[0].bg;
+    let currentBg = [...BACKGROUND_THEMES[0].bg];
 
-const PALETTE = [
-{ core: '#00F3FF', glow: 'rgba(0, 243, 255, ' },
-{ core: '#FF0055', glow: 'rgba(255, 0, 85, ' },
-{ core: '#00FF66', glow: 'rgba(0, 255, 102, ' },
-{ core: '#FFE600', glow: 'rgba(255, 230, 0, ' },
-{ core: '#B000FF', glow: 'rgba(176, 0, 255, ' },
-{ core: '#FF7700', glow: 'rgba(255, 119, 0, ' }
- ];
+    const PALETTE = [
+      { core: '#00F3FF', glow: 'rgba(0, 243, 255, ' },
+      { core: '#FF0055', glow: 'rgba(255, 0, 85, ' },
+      { core: '#00FF66', glow: 'rgba(0, 255, 102, ' },
+      { core: '#FFE600', glow: 'rgba(255, 230, 0, ' },
+      { core: '#B000FF', glow: 'rgba(176, 0, 255, ' },
+      { core: '#FF7700', glow: 'rgba(255, 119, 0, ' }
+    ];
 
-let touchesMap = new Map();
-let activeIds = [];
-let particles = [];
-let shockwaves = [];
-let stars = [];
-let state = 'IDLE'; // IDLE, CHARGING, ELIMINATING, DECIDED
-let chargeProgress = 0;
-let winnerId = null;
-let vortexAngle = 0;
-let gridOffset = 0;
-let eliminationTimer = null;
+    let touchesMap = new Map();
+    let activeIds = [];
+    let particles = [];
+    let shockwaves = [];
+    let stars = [];
+    let state = 'IDLE';
+    let chargeProgress = 0;
+    let winnerId = null;
+    let vortexAngle = 0;
+    let gridOffset = 0;
+    let eliminationTimer = null;
 
-function resize() {
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-initStars();
-}
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = window.innerWidth || document.documentElement.clientWidth || screen.width;
+      const h = window.innerHeight || document.documentElement.clientHeight || screen.height;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.scale(dpr, dpr);
+      initStars(w, h);
+    }
 
-function initStars() {
-stars = [];
-const count = Math.floor((canvas.width * canvas.height) / 4000);
-for (let i = 0; i < count; i++) {
-stars.push({
-x: Math.random() * canvas.width,
-y: Math.random() * canvas.height,
-size: Math.random() * 2 + 0.5,
-alpha: Math.random() * 0.8 + 0.2,
-speed: Math.random() * 0.5 + 0.1
-});
-}
-}
+    function initStars(w, h) {
+      stars = [];
+      const count = Math.floor((w * h) / 3000);
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          size: Math.random() * 2 + 0.5,
+          alpha: Math.random() * 0.8 + 0.2,
+          speed: Math.random() * 0.5 + 0.1
+        });
+      }
+    }
 
-window.addEventListener('resize', resize);
-resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+    resize();
 
-class Particle {
-constructor(x, y, color, speedScale = 1) {
-this.x = x;
-this.y = y;
-this.color = color;
-this.radius = Math.random() * 4 + 2;
-const angle = Math.random() * Math.PI * 2;
-const speed = (Math.random() * 12 + 4) * speedScale;
-this.vx = Math.cos(angle) * speed;
-this.vy = Math.sin(angle) * speed;
-this.alpha = 1;
-this.decay = Math.random() * 0.03 + 0.015;
-}
-update() {
-this.x += this.vx;
-this.y += this.vy;
-this.vx *= 0.94;
-this.vy *= 0.94;
-this.alpha -= this.decay;
-}
-draw() {
-if (this.alpha <= 0) return;
-ctx.save();
-ctx.globalAlpha = Math.max(0, this.alpha);
-ctx.beginPath();
-ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-ctx.fillStyle = this.color;
-ctx.shadowBlur = 10;
-ctx.shadowColor = this.color;
-ctx.fill();
-ctx.restore();
-}
-}
+    class Particle {
+      constructor(x, y, color, speedScale = 1) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.radius = Math.random() * 4 + 2;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = (Math.random() * 12 + 4) * speedScale;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.03 + 0.015;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.94;
+        this.vy *= 0.94;
+        this.alpha -= this.decay;
+      }
+      draw() {
+        if (this.alpha <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
 
-class Shockwave {
-constructor(x, y, color) {
-this.x = x;
-this.y = y;
-this.color = color;
-this.radius = 10;
-this.alpha = 1;
-this.lineWidth = 10;
-}
-update() {
-this.radius += 8;
-this.alpha -= 0.035;
-this.lineWidth *= 0.93;
-}
-draw() {
-if (this.alpha <= 0) return;
-ctx.save();
-ctx.globalAlpha = Math.max(0, this.alpha);
-ctx.beginPath();
-ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-ctx.strokeStyle = this.color;
-ctx.lineWidth = Math.max(1, this.lineWidth);
-ctx.shadowBlur = 20;
-ctx.shadowColor = this.color;
-ctx.stroke();
-ctx.restore();
-}
-}
+    class Shockwave {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.radius = 10;
+        this.alpha = 1;
+        this.lineWidth = 10;
+      }
+      update() {
+        this.radius += 8;
+        this.alpha -= 0.035;
+        this.lineWidth *= 0.93;
+      }
+      draw() {
+        if (this.alpha <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = Math.max(1, this.lineWidth);
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = this.color;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
 
-function getCentroid() {
-if (activeIds.length === 0) return { x: canvas.width / 2, y: canvas.height / 2 };
-let sumX = 0, sumY = 0, count = 0;
-activeIds.forEach(id => {
-const t = touchesMap.get(id);
-if (t) {
-sumX += t.x;
-sumY += t.y;
-count++;
-}
-});
-return count > 0 ? { x: sumX / count, y: sumY / count } : { x: canvas.width / 2, y: canvas.height / 2 };
-}
+    function getCentroid() {
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+      if (activeIds.length === 0) return { x: w / 2, y: h / 2 };
+      let sumX = 0, sumY = 0, count = 0;
+      activeIds.forEach(id => {
+        const t = touchesMap.get(id);
+        if (t) {
+          sumX += t.x;
+          sumY += t.y;
+          count++;
+        }
+      });
+      return count > 0 ? { x: sumX / count, y: sumY / count } : { x: w / 2, y: h / 2 };
+    }
 
-function rotateBackgroundTheme() {
-currentThemeIdx = (currentThemeIdx + 1) % BACKGROUND_THEMES.length;
-targetBg = BACKGROUND_THEMES[currentThemeIdx].bg;
-}
+    function rotateBackgroundTheme() {
+      currentThemeIdx = (currentThemeIdx + 1) % BACKGROUND_THEMES.length;
+      targetBg = BACKGROUND_THEMES[currentThemeIdx].bg;
+    }
 
-function syncTouches(e) {
-if (state === 'DECIDED') resetGame();
+    function syncTouches(e) {
+      const currentTouchIds = new Set();
+      for (let i = 0; i < e.touches.length; i++) {
+        const t = e.touches[i];
+        const id = t.identifier;
+        currentTouchIds.add(id);
 
-// Read current touches directly from native touch list
-const currentTouchIds = new Set();
-for (let i = 0; i < e.touches.length; i++) {
-const t = e.touches[i];
-const id = t.identifier;
-currentTouchIds.add(id);
+        if (!touchesMap.has(id)) {
+          const colorObj = PALETTE[touchesMap.size % PALETTE.length];
+          touchesMap.set(id, {
+            x: t.clientX,
+            y: t.clientY,
+            color: colorObj,
+            angle1: Math.random() * Math.PI * 2,
+            angle2: Math.random() * Math.PI * 2,
+            radius: 45
+          });
+        } else {
+          const existing = touchesMap.get(id);
+          existing.x = t.clientX;
+          existing.y = t.clientY;
+        }
+      }
 
-if (!touchesMap.has(id)) {
-const colorObj = PALETTE[touchesMap.size % PALETTE.length];
-touchesMap.set(id, {
-x: t.clientX,
-y: t.clientY,
-color: colorObj,
-angle1: Math.random() * Math.PI * 2,
-angle2: Math.random() * Math.PI * 2,
-radius: 45
-});
-} else {
-const existing = touchesMap.get(id);
-existing.x = t.clientX;
-existing.y = t.clientY;
-}
-}
+      for (let id of touchesMap.keys()) {
+        if (!currentTouchIds.has(id)) {
+          touchesMap.delete(id);
+          const idx = activeIds.indexOf(id);
+          if (idx !== -1) activeIds.splice(idx, 1);
+        }
+      }
 
-// Purge removed touches
-for (let id of touchesMap.keys()) {
-if (!currentTouchIds.has(id)) {
-touchesMap.delete(id);
-const idx = activeIds.indexOf(id);
-if (idx !== -1) activeIds.splice(idx, 1);
-}
-}
+      evaluateState();
+    }
 
-evaluateState();
-}
+    function evaluateState() {
+      if (state === 'DECIDED') {
+        if (touchesMap.size < 2) {
+          resetGame();
+        }
+        return;
+      }
 
-function evaluateState() {
-if (touchesMap.size === 0) {
-resetGame();
-return;
-}
+      if (touchesMap.size === 0) {
+        resetGame();
+        return;
+      }
 
-if (state === 'IDLE' && touchesMap.size >= 2) {
-state = 'CHARGING';
-chargeProgress = 0;
-uiOverlay.style.opacity = '0';
-} else if (state === 'CHARGING' && touchesMap.size < 2) {
-resetGame();
-}
-}
+      if (state === 'IDLE' && touchesMap.size >= 2) {
+        state = 'CHARGING';
+        chargeProgress = 0;
+      } else if (state === 'CHARGING' && touchesMap.size < 2) {
+        resetGame();
+      }
+    }
 
-function startEliminationPhase() {
-state = 'ELIMINATING';
-activeIds = Array.from(touchesMap.keys());
-runEliminationStep();
-}
+    function startEliminationPhase() {
+      state = 'ELIMINATING';
+      activeIds = Array.from(touchesMap.keys());
+      runEliminationStep();
+    }
 
-function runEliminationStep() {
-if (activeIds.length <= 1) {
-// Final Winner
-winnerId = activeIds[0];
-state = 'DECIDED';
-const winner = touchesMap.get(winnerId);
-if (winner) {
-shockwaves.push(new Shockwave(winner.x, winner.y, winner.color.core));
-shockwaves.push(new Shockwave(winner.x, winner.y, '#FFFFFF'));
-for (let i = 0; i < 150; i++) {
-particles.push(new Particle(winner.x, winner.y, winner.color.core, 2.5));
-}
-}
-rotateBackgroundTheme();
-return;
-}
+    function runEliminationStep() {
+      if (activeIds.length <= 1) {
+        winnerId = activeIds[0];
+        state = 'DECIDED';
+        const winner = touchesMap.get(winnerId);
+        if (winner) {
+          shockwaves.push(new Shockwave(winner.x, winner.y, winner.color.core));
+          shockwaves.push(new Shockwave(winner.x, winner.y, '#FFFFFF'));
+          for (let i = 0; i < 150; i++) {
+            particles.push(new Particle(winner.x, winner.y, winner.color.core, 2.5));
+          }
+        }
+        rotateBackgroundTheme();
+        return;
+      }
 
-// Eliminate 1 finger
-const randomIndex = Math.floor(Math.random() * activeIds.length);
-const eliminatedId = activeIds[randomIndex];
-activeIds.splice(randomIndex, 1);
+      const randomIndex = Math.floor(Math.random() * activeIds.length);
+      const eliminatedId = activeIds[randomIndex];
+      activeIds.splice(randomIndex, 1);
 
-const eliminatedTouch = touchesMap.get(eliminatedId);
-if (eliminatedTouch) {
-shockwaves.push(new Shockwave(eliminatedTouch.x, eliminatedTouch.y, '#FF0055'));
-for (let i = 0; i < 80; i++) {
-particles.push(new Particle(eliminatedTouch.x, eliminatedTouch.y, eliminatedTouch.color.core, 2.0));
-particles.push(new Particle(eliminatedTouch.x, eliminatedTouch.y, '#FF0055', 1.5));
-}
-}
+      const eliminatedTouch = touchesMap.get(eliminatedId);
+      if (eliminatedTouch) {
+        shockwaves.push(new Shockwave(eliminatedTouch.x, eliminatedTouch.y, '#FF0055'));
+        for (let i = 0; i < 80; i++) {
+          particles.push(new Particle(eliminatedTouch.x, eliminatedTouch.y, eliminatedTouch.color.core, 2.0));
+          particles.push(new Particle(eliminatedTouch.x, eliminatedTouch.y, '#FF0055', 1.5));
+        }
+      }
 
-eliminationTimer = setTimeout(runEliminationStep, 500);
-}
+      eliminationTimer = setTimeout(runEliminationStep, 500);
+    }
 
-function resetGame() {
-if (eliminationTimer) clearTimeout(eliminationTimer);
-state = 'IDLE';
-chargeProgress = 0;
-winnerId = null;
-activeIds = [];
-uiOverlay.textContent = 'Place 2 or more fingers';
-uiOverlay.style.opacity = '1';
-}
+    function resetGame() {
+      if (eliminationTimer) clearTimeout(eliminationTimer);
+      state = 'IDLE';
+      chargeProgress = 0;
+      winnerId = null;
+      activeIds = [];
+    }
 
-function drawLightning(x1, y1, x2, y2, color) {
-ctx.save();
-ctx.beginPath();
-ctx.moveTo(x1, y1);
+    function drawLightning(x1, y1, x2, y2, color) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      
+      const distance = Math.hypot(x2 - x1, y2 - y1);
+      const steps = Math.max(2, Math.floor(distance / 15));
+      
+      let currentX = x1;
+      let currentY = y1;
 
-const distance = Math.hypot(x2 - x1, y2 - y1);
-const steps = Math.max(2, Math.floor(distance / 15));
+      for (let i = 0; i < steps; i++) {
+        const targetX = x1 + (x2 - x1) * ((i + 1) / steps);
+        const targetY = y1 + (y2 - y1) * ((i + 1) / steps);
+        
+        if (i < steps - 1) {
+          currentX = targetX + (Math.random() - 0.5) * 16;
+          currentY = targetY + (Math.random() - 0.5) * 16;
+        } else {
+          currentX = targetX;
+          currentY = targetY;
+        }
+        ctx.lineTo(currentX, currentY);
+      }
 
-let currentX = x1;
-let currentY = y1;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = color;
+      ctx.stroke();
+      ctx.restore();
+    }
 
-for (let i = 0; i < steps; i++) {
-const targetX = x1 + (x2 - x1) * ((i + 1) / steps);
-const targetY = y1 + (y2 - y1) * ((i + 1) / steps);
+    function drawBackground(speedFactor) {
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
 
-if (i < steps - 1) {
-currentX = targetX + (Math.random() - 0.5) * 16;
-currentY = targetY + (Math.random() - 0.5) * 16;
-} else {
-currentX = targetX;
-currentY = targetY;
-}
-ctx.lineTo(currentX, currentY);
-}
+      currentBg[0] += (targetBg[0] - currentBg[0]) * 0.05;
+      currentBg[1] += (targetBg[1] - currentBg[1]) * 0.05;
+      currentBg[2] += (targetBg[2] - currentBg[2]) * 0.05;
 
-ctx.strokeStyle = color;
-ctx.lineWidth = 2.5;
-ctx.shadowBlur = 12;
-ctx.shadowColor = color;
-ctx.stroke();
-ctx.restore();
-}
+      ctx.fillStyle = `rgb(${Math.round(currentBg[0])}, ${Math.round(currentBg[1])}, ${Math.round(currentBg[2])})`;
+      ctx.fillRect(0, 0, w, h);
 
-function drawBackground(speedFactor) {
-currentBg[0] += (targetBg[0] - currentBg[0]) * 0.05;
-currentBg[1] += (targetBg[1] - currentBg[1]) * 0.05;
-currentBg[2] += (targetBg[2] - currentBg[2]) * 0.05;
+      ctx.save();
+      for (let star of stars) {
+        star.y += star.speed * speedFactor;
+        if (star.y > h) {
+          star.y = 0;
+          star.x = Math.random() * w;
+        }
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+        ctx.fill();
+      }
+      ctx.restore();
 
-ctx.fillStyle = rgba(${Math.round(currentBg[0])}, ${Math.round(currentBg[1])}, ${Math.round(currentBg[2])}, 0.35)`;
-ctx.fillRect(0, 0, canvas.width, canvas.height);
+      gridOffset = (gridOffset + 0.5 * speedFactor) % 40;
+      ctx.save();
+      ctx.strokeStyle = BACKGROUND_THEMES[currentThemeIdx].grid;
+      ctx.lineWidth = 1;
+      
+      for (let x = 0; x <= w; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = gridOffset; y <= h; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
-// Starfield
-ctx.save();
-for (let star of stars) {
-star.y += star.speed * speedFactor;
-if (star.y > canvas.height) {
-star.y = 0;
-star.x = Math.random() * canvas.width;
-}
-ctx.beginPath();
-ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-ctx.fillStyle = rgba(255, 255, 255,${star.alpha})`;
-ctx.fill();
-}
-ctx.restore();
+    function animate(timestamp) {
+      const speedFactor = 1 + chargeProgress * 3 + (state === 'ELIMINATING' ? 2 : 0);
+      drawBackground(speedFactor);
 
-// Cyber Grid
-gridOffset = (gridOffset + 0.5 * speedFactor) % 40;
-ctx.save();
-ctx.strokeStyle = BACKGROUND_THEMES[currentThemeIdx].grid;
-ctx.lineWidth = 1;
+      const centroid = getCentroid();
 
-for (let x = 0; x < canvas.width; x += 40) {
-ctx.beginPath();
-ctx.moveTo(x, 0);
-ctx.lineTo(x, canvas.height);
-ctx.stroke();
-}
-for (let y = gridOffset; y < canvas.height; y += 40) {
-ctx.beginPath();
-ctx.moveTo(0, y);
-ctx.lineTo(canvas.width, y);
-ctx.stroke();
-}
-ctx.restore();
-}
+      if (state === 'CHARGING') {
+        chargeProgress += 0.015;
+        if (chargeProgress >= 1) {
+          chargeProgress = 1;
+          startEliminationPhase();
+        }
+      }
 
-function animate(timestamp) {
-const speedFactor = 1 + chargeProgress * 3 + (state === 'ELIMINATING' ? 2 : 0);
-drawBackground(speedFactor);
+      if (state === 'CHARGING' || state === 'ELIMINATING' || state === 'DECIDED') {
+        vortexAngle += 0.04 + chargeProgress * 0.1;
+        const vortexRadius = 30 + chargeProgress * 40;
 
-const centroid = getCentroid();
+        ctx.save();
+        ctx.translate(centroid.x, centroid.y);
+        ctx.rotate(vortexAngle);
 
-if (state === 'CHARGING') {
-chargeProgress += 0.015;
-if (chargeProgress >= 1) {
-chargeProgress = 1;
-startEliminationPhase();
-}
-}
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.arc(0, 0, vortexRadius + (i * 16), 0, Math.PI * 1.3);
+          ctx.strokeStyle = `rgba(0, 243, 255, ${0.25 + chargeProgress * 0.45})`;
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#00F3FF';
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
 
-// Vortex Core
-if (state === 'CHARGING' || state === 'ELIMINATING' || state === 'DECIDED') {
-vortexAngle += 0.04 + chargeProgress * 0.1;
-const vortexRadius = 30 + chargeProgress * 40;
+      if (activeIds.length > 1 && state !== 'DECIDED') {
+        for (let i = 0; i < activeIds.length; i++) {
+          for (let j = i + 1; j < activeIds.length; j++) {
+            const t1 = touchesMap.get(activeIds[i]);
+            const t2 = touchesMap.get(activeIds[j]);
+            if (t1 && t2) {
+              drawLightning(
+                t1.x, t1.y, t2.x, t2.y,
+                t1.color.glow + (0.5 + chargeProgress * 0.5) + ')'
+              );
+            }
+          }
+        }
+      }
 
-ctx.save();
-ctx.translate(centroid.x, centroid.y);
-ctx.rotate(vortexAngle);
+      touchesMap.forEach((touch, id) => {
+        const isAlive = activeIds.includes(id);
 
-for (let i = 0; i < 3; i++) {
-ctx.beginPath();
-ctx.arc(0, 0, vortexRadius + (i * 16), 0, Math.PI * 1.3);
-ctx.strokeStyle = rgba(0, 243, 255, ${0.25 + chargeProgress * 0.45});
-ctx.lineWidth = 2;
-ctx.shadowBlur = 8;
-ctx.shadowColor = '#00F3FF';
-ctx.stroke();
-}
-ctx.restore();
-}
+        if (state === 'DECIDED' && id !== winnerId) return;
+        if (state === 'ELIMINATING' && !isAlive) return;
 
-// Lightning Beams
-if (activeIds.length > 1 && state !== 'DECIDED') {
-for (let i = 0; i < activeIds.length; i++) {
-for (let j = i + 1; j < activeIds.length; j++) {
-const t1 = touchesMap.get(activeIds[i]);
-const t2 = touchesMap.get(activeIds[j]);
-if (t1 && t2) {
-drawLightning(
-t1.x, t1.y, t2.x, t2.y,
-t1.color.glow + (0.5 + chargeProgress * 0.5) + ')'
-);
-}
-}
-}
-}
+        touch.angle1 += 0.03 + chargeProgress * 0.05;
+        touch.angle2 -= 0.02 + chargeProgress * 0.05;
+        
+        ctx.save();
+        ctx.translate(touch.x, touch.y);
 
-// Draw Touch Rings & HUD
-touchesMap.forEach((touch, id) => {
-const isAlive = activeIds.includes(id);
+        ctx.beginPath();
+        ctx.arc(0, 0, 22, 0, Math.PI * 2);
+        ctx.fillStyle = touch.color.core;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = touch.color.core;
+        ctx.fill();
 
-if (state === 'DECIDED' && id !== winnerId) return;
-if (state === 'ELIMINATING' && !isAlive) return;
+        ctx.save();
+        ctx.rotate(touch.angle1);
+        ctx.beginPath();
+        ctx.arc(0, 0, touch.radius + (state === 'CHARGING' ? chargeProgress * 12 : 0), 0, Math.PI * 2);
+        ctx.strokeStyle = touch.color.core;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 12]);
+        ctx.stroke();
+        ctx.restore();
 
-touch.angle1 += 0.03 + chargeProgress * 0.05;
-touch.angle2 -= 0.02 + chargeProgress * 0.05;
+        ctx.save();
+        ctx.rotate(touch.angle2);
+        ctx.beginPath();
+        ctx.arc(0, 0, touch.radius + 12 + (state === 'CHARGING' ? chargeProgress * 12 : 0), 0, Math.PI * 2);
+        ctx.strokeStyle = touch.color.core;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 16]);
+        ctx.stroke();
+        ctx.restore();
 
-ctx.save();
-ctx.translate(touch.x, touch.y);
+        if (state === 'DECIDED' && id === winnerId) {
+          const pulse = Math.sin(timestamp * 0.008) * 20;
+          ctx.beginPath();
+          ctx.arc(0, 0, touch.radius + 30 + pulse, 0, Math.PI * 2);
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 4;
+          ctx.shadowBlur = 25;
+          ctx.shadowColor = touch.color.core;
+          ctx.stroke();
+        }
 
-// Core
-ctx.beginPath();
-ctx.arc(0, 0, 22, 0, Math.PI * 2);
-ctx.fillStyle = touch.color.core;
-ctx.shadowBlur = 20;
-ctx.shadowColor = touch.color.core;
-ctx.fill();
+        ctx.restore();
+      });
 
-// Inner HUD Ring
-ctx.save();
-ctx.rotate(touch.angle1);
-ctx.beginPath();
-ctx.arc(0, 0, touch.radius + (state === 'CHARGING' ? chargeProgress * 12 : 0), 0, Math.PI * 2);
-ctx.strokeStyle = touch.color.core;
-ctx.lineWidth = 2;
-ctx.setLineDash([8, 12]);
-ctx.stroke();
-ctx.restore();
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        shockwaves[i].update();
+        shockwaves[i].draw();
+        if (shockwaves[i].alpha <= 0) shockwaves.splice(i, 1);
+      }
 
-// Outer HUD Ring
-ctx.save();
-ctx.rotate(touch.angle2);
-ctx.beginPath();
-ctx.arc(0, 0, touch.radius + 12 + (state === 'CHARGING' ? chargeProgress * 12 : 0), 0, Math.PI * 2);
-ctx.strokeStyle = touch.color.core;
-ctx.lineWidth = 1.5;
-ctx.setLineDash([4, 16]);
-ctx.stroke();
-ctx.restore();
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw();
+        if (particles[i].alpha <= 0) particles.splice(i, 1);
+      }
 
-// Winner Halo
-if (state === 'DECIDED' && id === winnerId) {
-const pulse = Math.sin(timestamp * 0.008) * 20;
-ctx.beginPath();
-ctx.arc(0, 0, touch.radius + 30 + pulse, 0, Math.PI * 2);
-ctx.strokeStyle = '#FFFFFF';
-ctx.lineWidth = 4;
-ctx.shadowBlur = 25;
-ctx.shadowColor = touch.color.core;
-ctx.stroke();
-}
+      requestAnimationFrame(animate);
+    }
 
-ctx.restore();
-});
+    const handleTouchNative = (e) => {
+      e.preventDefault();
+      syncTouches(e);
+    };
 
-// Shockwaves
-for (let i = shockwaves.length - 1; i >= 0; i--) {
-shockwaves[i].update();
-shockwaves[i].draw();
-if (shockwaves[i].alpha <= 0) shockwaves.splice(i, 1);
-}
+    window.addEventListener('touchstart', handleTouchNative, { passive: false });
+    window.addEventListener('touchmove', handleTouchNative, { passive: false });
+    window.addEventListener('touchend', handleTouchNative, { passive: false });
+    window.addEventListener('touchcancel', handleTouchNative, { passive: false });
 
-// Particles
-for (let i = particles.length - 1; i >= 0; i--) {
-particles[i].update();
-particles[i].draw();
-if (particles[i].alpha <= 0) particles.splice(i, 1);
-}
-
-requestAnimationFrame(animate);
-}
-
-// Touch Event Listeners with native gesture prevention
-const handleTouchNative = (e) => {
-e.preventDefault();
-syncTouches(e);
-};
-
-window.addEventListener('touchstart', handleTouchNative, { passive: false });
-window.addEventListener('touchmove', handleTouchNative, { passive: false });
-window.addEventListener('touchend', handleTouchNative, { passive: false });
-window.addEventListener('touchcancel', handleTouchNative, { passive: false });
-
-requestAnimationFrame(animate);
-</script>
+    requestAnimationFrame(animate);
+  </script>
 </body>
 </html>
