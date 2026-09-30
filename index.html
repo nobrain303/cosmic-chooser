@@ -82,7 +82,7 @@
       const h = window.innerHeight || document.documentElement.clientHeight || screen.height;
       canvas.width = w * dpr;
       canvas.height = h * dpr;
-      ctx.scale(dpr, dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       initStars(w, h);
     }
 
